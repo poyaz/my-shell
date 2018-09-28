@@ -1,0 +1,6 @@
+#################################
+# Rename this file to "auth.conf"
+#################################
+username="your-username"
+password="your-password"
+cert="sha256:9eacd4d5537d7aa23f6a7f544164dafd54c92f1909f427a7a4ac02302fd43383"

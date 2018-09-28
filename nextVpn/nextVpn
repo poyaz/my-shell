@@ -1,0 +1,124 @@
+#!/bin/bash
+
+BASEDIR=$(dirname "$0")
+PIDFILE=/var/run/nextVpn.pid
+POSITIONAL=()
+
+if [ $# -eq 0 ]; then
+  FN="help"
+fi
+
+while [ $# -gt 0 ]
+do
+  key="$1"
+
+  case $key in
+    -s|--serrver)
+      SERVER="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    -h|--help)
+      FN="help"
+      shift # past argument
+      ;;
+    start)
+      FN="start"
+      shift # past argument
+      ;;
+    restart)
+      FN="restart"
+      shift
+      ;;
+    stop)
+      FN="stop"
+      shift # past argument
+      ;;
+    *)
+      echo -ne "\nUsage:	sh nextVpn --help\n\n"
+      exit
+      ;;
+  esac
+done
+
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+if [ -z "$SERVER" ]; then
+  SERVER="us"
+fi
+
+. "$BASEDIR"/servers.conf
+. "$BASEDIR"/auth.conf
+
+
+havePermission () {
+  if [ $USER != "root" ]; then
+    echo -ne "* Permission denied! Please use sudo or root user\n\n"
+    exit 1
+  fi
+}
+
+start () {
+  if [ ! -f $PIDFILE ]; then
+    #sudo /sbin/modprobe tun
+    sudo insmod /lib/modules/4.9.96-1-MANJARO/kernel/drivers/net/tun.ko.gz
+    echo $password | sudo openconnect --servercert $cert -u $username --background --pid-file=$PIDFILE --passwd-on-stdin ${!SERVER}
+    #> /dev/null 2>&1
+    sleep 3
+    echo -ne "VPN now connected.\n\n"
+  else
+    echo -ne "* You are currently connected to the nextVpn\n\n"
+  fi
+}
+
+stop () {
+  if [ ! -f $PIDFILE ]; then
+      echo -ne "* You are not connected to the nextVpn\n\n"
+  else
+    echo -ne "Disconnecting from nextVpn...\n"
+    sudo kill -SIGINT $(cat $PIDFILE) > /dev/null 2>&1
+    sleep 2
+    if [ $? -eq 0 ]; then echo -ne " Done!\n\n"; fi
+  fi
+}
+
+restart () {
+  echo -ne "Stop service...\n"
+  stop
+
+  echo -ne "Start Service...\n"
+  sleep 2
+
+  start
+  echo -ne ""
+}
+
+help () {
+  echo -ne "\nUsage:	sudo sh nextVpn COMMAND\n\n"
+  echo -ne "Connect with openconnect for use VPN\n\n"
+  echo -ne "Options:\n"
+  echo -ne "  -s, --server string       Set connection server (Default: us)\n"
+  echo -ne "  -h, --help                Help\n\n"
+  echo -ne "Commands:\n"
+  echo -ne "  start                     Start service\n"
+  echo -ne "  stop                      Stop Service\n"
+  echo -ne "  restart                   Restart service\n\n"
+}
+
+case "$FN" in
+  help)
+    help
+    ;;
+  start)
+    havePermission
+    start
+    ;;
+  restart)
+    havePermission
+    restart
+    ;;
+  stop)
+    havePermission
+    stop
+    ;;
+esac
